@@ -5,6 +5,7 @@ template <int D>
 struct BasicBox {
   int min_[D];
   int max_[D];
+  static const int dim_ = D;
 };
 
 using Box = BasicBox<2>;

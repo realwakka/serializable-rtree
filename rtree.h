@@ -44,7 +44,6 @@ class Writer {
   void print();
 
   RTree rtree_;
-
 };
 
 class Reader {

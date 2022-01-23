@@ -2,6 +2,8 @@
 
 #include <cassert>
 #include <limits>
+#include <filesystem>
+#include <fstream>
 
 namespace rtree {
 
@@ -163,23 +165,51 @@ int insert_recursive(int new_rect_offset, int target_node_offset, std::vector<No
   }
 }
 
-
-Writer::Writer() {
+void init_rtree(RTree& rtree) {
   Node root_node;
   root_node.size_ = 0;
   for(int i=0; i<fanout; ++i)
     root_node.rects_[i] = -1;
 
-  rtree_.nodes_.emplace_back(root_node);
+  rtree.nodes_.emplace_back(root_node);
 
   Rect root_rect;
   root_rect.child_ = 0;
 
-  rtree_.rects_.emplace_back(root_rect);
+  rtree.rects_.emplace_back(root_rect);
+  rtree.root_rect_offset_ = 0;
 }
 
+Writer::Writer() {
+  init_rtree(rtree_);
+}
+
+
 void Writer::write(const std::string& path) {
+  // std::filesystem::path fs_path{path};
+
   
+  std::filesystem::create_directory(path);
+  const RTree& rtree = rtree_;
+  auto node_path = path + "/nodes";
+  {
+    std::ofstream ofs;
+    ofs.open(node_path.c_str(), std::ios::out | std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(rtree.nodes_.data())
+              , sizeof(Node) * rtree.nodes_.size());
+    ofs.close();
+  }
+
+  auto rect_path = path + "/rects";
+  {
+    std::ofstream ofs;
+    ofs.open(rect_path.c_str(), std::ios::out | std::ios::binary);
+    ofs.write(reinterpret_cast<const char*>(&rtree.root_rect_offset_),
+              sizeof(rtree.root_rect_offset_));    
+    ofs.write(reinterpret_cast<const char*>(rtree.rects_.data()),
+              sizeof(Rect) * rtree.rects_.size());    
+    ofs.close();
+  }
 }
 
 void Writer::insert(const Box& box, int id) {

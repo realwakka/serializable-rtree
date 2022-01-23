@@ -22,25 +22,30 @@
 //   int root_rect_offset_;
 // };
 
-
-int main() {
-  using namespace rtree;
-  Writer writer;
+void insert_random_boxes(rtree::Writer& writer, size_t count) {
   std::random_device rd;
   std::mt19937 mt(rd());
+  
   std::uniform_int_distribution<int> dist(0, 900);
-  for(int i=0; i<4; ++i) {
+  for(int i=0; i<8; ++i) {
     Box box;
-    for(int j=0; j<dim; ++j) {
+    for(int j=0; j<2; ++j) {
       auto a = dist(mt);
       box.min_[j] = a;
       box.max_[j] = a + 100;
     }
     writer.insert(box, i);
     writer.print();
-
   }
+}
 
+int main() {
+
+  std::cout << sizeof(Box) << std::endl;
+  using namespace rtree;
+  Writer writer;
+  insert_random_boxes(writer, 8);
   print_as_image("test1.png", writer.rtree_);
+  writer.write("test");
   return 0;
 }
