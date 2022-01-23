@@ -53,10 +53,6 @@ std::pair<std::vector<int>, std::vector<int>> quadratic_split(const std::vector<
       }
     }
   }
-
-  // std::cout << "seed a : " << seed_a << std::endl;
-  // std::cout << "seed b : " << seed_b << std::endl;
-
   std::vector<int> ret_a;
   ret_a.emplace_back(seed_a);
   
@@ -165,7 +161,7 @@ int insert_recursive(int new_rect_offset, int target_node_offset, std::vector<No
   }
 }
 
-void init_rtree(RTree& rtree) {
+void init_rtree(RTreeData& rtree) {
   Node root_node;
   root_node.size_ = 0;
   for(int i=0; i<fanout; ++i)
@@ -180,23 +176,54 @@ void init_rtree(RTree& rtree) {
   rtree.root_rect_offset_ = 0;
 }
 
-Writer::Writer() {
-  init_rtree(rtree_);
+RTree::RTree() {
+  init_rtree(data_);
 }
 
-
-void Writer::write(const std::string& path) {
-  // std::filesystem::path fs_path{path};
-
+void RTree::insert(const Box& box, int id) {
+  Rect rect;
+  rect.box_ = box;
+  rect.child_ = -1;
+  rect.id_ = id;
   
+  auto offset = data_.rects_.size();
+  data_.rects_.emplace_back(rect);
+
+  auto root_node_offset = data_.rects_[data_.root_rect_offset_].child_;
+  auto res = insert_recursive(offset, root_node_offset, data_.nodes_, data_.rects_);
+  refresh_rect(data_.nodes_, data_.rects_, data_.root_rect_offset_);
+  
+  if (res >= 0) {
+    Node new_root_node;
+    new_root_node.rects_[0] = data_.root_rect_offset_;
+    new_root_node.rects_[1] = res;
+    new_root_node.size_ = 2;    
+
+    root_node_offset = data_.nodes_.size();
+    data_.nodes_.emplace_back(new_root_node);
+    
+    Rect root_rect;
+    root_rect.child_ = root_node_offset;
+    data_.root_rect_offset_ = data_.rects_.size();
+    data_.rects_.emplace_back(root_rect);
+    refresh_rect(data_.nodes_, data_.rects_, data_.root_rect_offset_);    
+  }
+}
+
+Writer::Writer() {}
+
+
+void Writer::write(const std::string& path, const RTree& rtree) {
   std::filesystem::create_directory(path);
-  const RTree& rtree = rtree_;
+
+  auto& data = rtree.data_;
   auto node_path = path + "/nodes";
   {
     std::ofstream ofs;
     ofs.open(node_path.c_str(), std::ios::out | std::ios::binary);
-    ofs.write(reinterpret_cast<const char*>(rtree.nodes_.data())
-              , sizeof(Node) * rtree.nodes_.size());
+    ofs << data.nodes_.size();
+    ofs.write(reinterpret_cast<const char*>(data.nodes_.data()),
+              sizeof(Node) * data.nodes_.size());
     ofs.close();
   }
 
@@ -204,56 +231,27 @@ void Writer::write(const std::string& path) {
   {
     std::ofstream ofs;
     ofs.open(rect_path.c_str(), std::ios::out | std::ios::binary);
-    ofs.write(reinterpret_cast<const char*>(&rtree.root_rect_offset_),
-              sizeof(rtree.root_rect_offset_));    
-    ofs.write(reinterpret_cast<const char*>(rtree.rects_.data()),
-              sizeof(Rect) * rtree.rects_.size());    
+    ofs.write(reinterpret_cast<const char*>(&data.root_rect_offset_),
+              sizeof(data.root_rect_offset_));
+    ofs << data.rects_.size();
+    ofs.write(reinterpret_cast<const char*>(data.rects_.data()),
+              sizeof(Rect) * data.rects_.size());    
     ofs.close();
   }
 }
 
-void Writer::insert(const Box& box, int id) {
-  Rect rect;
-  rect.box_ = box;
-  rect.child_ = -1;
-  rect.id_ = id;
-  
-  auto offset = rtree_.rects_.size();
-  rtree_.rects_.emplace_back(rect);
-
-  auto root_node_offset = rtree_.rects_[rtree_.root_rect_offset_].child_;
-  auto res = insert_recursive(offset, root_node_offset, rtree_.nodes_, rtree_.rects_);
-  refresh_rect(rtree_.nodes_, rtree_.rects_, rtree_.root_rect_offset_);
-  
-  if (res >= 0) {
-    Node new_root_node;
-    new_root_node.rects_[0] = rtree_.root_rect_offset_;
-    new_root_node.rects_[1] = res;
-    new_root_node.size_ = 2;    
-
-    root_node_offset = rtree_.nodes_.size();
-    rtree_.nodes_.emplace_back(new_root_node);
-    
-    Rect root_rect;
-    root_rect.child_ = root_node_offset;
-    rtree_.root_rect_offset_ = rtree_.rects_.size();
-    rtree_.rects_.emplace_back(root_rect);
-    refresh_rect(rtree_.nodes_, rtree_.rects_, rtree_.root_rect_offset_);    
-  }
-}
-
-void Writer::print() {
+void RTree::print() {
   std::vector<int> rects;
-  rects.emplace_back(rtree_.root_rect_offset_);
-  std::cout << "|" << rtree_.root_rect_offset_ << "|" << std::endl;
+  rects.emplace_back(data_.root_rect_offset_);
+  std::cout << "|" << data_.root_rect_offset_ << "|" << std::endl;
   while(!rects.empty()) {
     std::vector<int> next_rects;
 
     for(auto r : rects) {
-      if (rtree_.rects_[r].child_ < 0)
+      if (data_.rects_[r].child_ < 0)
 	continue;
-      auto& node = rtree_.nodes_[rtree_.rects_[r].child_];
-      std::cout << "(" << rtree_.rects_[r].child_ << ")";
+      auto& node = data_.nodes_[data_.rects_[r].child_];
+      std::cout << "(" << data_.rects_[r].child_ << ")";
       std::cout << "|";
       for(auto i=0; i<node.size_; ++i) {
 	std::cout << node.rects_[i] << " ";
@@ -267,7 +265,7 @@ void Writer::print() {
   }
 }
 
-void print_as_image(const std::string& filename, const RTree& rtree) {
+void print_as_image(const std::string& filename, const RTreeData& rtree) {
   cairo_surface_t *surface;
   cairo_t *cr;
   cairo_status_t status;
@@ -340,5 +338,40 @@ void print_as_image(const std::string& filename, const RTree& rtree) {
   }
 }
 
+Reader::Reader() {}
+
+RTree Reader::read(const std::string& path) {
+  auto node_path = path + "/nodes";
+  RTreeData data;  
+  {
+    std::ifstream ifs;
+    ifs.open(node_path.c_str(), std::ifstream::binary);
+    size_t size;
+    ifs >> size;
+
+    data.nodes_ = std::vector<Node>{size};
+    ifs.read(reinterpret_cast<char*>(data.nodes_.data()),
+             sizeof(Node) * size);
+    ifs.close();
+  }
+
+  auto rect_path = path + "/rects";
+  {
+    std::ifstream ifs;
+    ifs.open(rect_path.c_str(), std::ifstream::binary);
+    ifs.read(reinterpret_cast<char*>(&data.root_rect_offset_),
+             sizeof(data.root_rect_offset_));
+    size_t size;
+    ifs >> size;
+    data.rects_ = std::vector<Rect>{size};
+    ifs.read(reinterpret_cast<char*>(data.rects_.data()),
+             sizeof(Rect) * size);
+    ifs.close();
+  }
+
+  RTree rtree;
+  rtree.data_ = data;
+  return rtree;
+}
 
 }

@@ -30,29 +30,34 @@ struct BasicRect {
 
 using Rect = BasicRect<2>;
 
-struct RTree {
+struct RTreeData {
   std::vector<Node> nodes_;
   std::vector<Rect> rects_;
   int root_rect_offset_;
 };
 
+class RTree {
+ public:
+  RTree();
+  void insert(const Box& box, int id);
+  void print();
+  
+  RTreeData data_;
+};
+
 class Writer {
  public:
   Writer();
-  void write(const std::string& path);
-  void insert(const Box& box, int id);
-  void print();
-
-  RTree rtree_;
+  void write(const std::string& path, const RTree& rtree);
 };
 
 class Reader {
  public:
-  Reader(const std::string& path);
-  std::vector<int> range_query(const Box& query);
+  Reader();
+  RTree read(const std::string& path);
 };
 
-void print_as_image(const std::string& filename, const RTree& rtree);
+void print_as_image(const std::string& filename, const RTreeData& rtree);
 
 }
 
