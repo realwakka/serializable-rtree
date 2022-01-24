@@ -5,31 +5,60 @@
 
 #include "rtree.h"
 
-void insert_random_boxes(rtree::RTree& rtree, size_t count) {
+rtree::Box create_random_box() {
   std::random_device rd;
   std::mt19937 mt(rd());
-  
   std::uniform_int_distribution<int> dist(0, 900);
+  
+  rtree::Box box;  
+  for(int j=0; j<2; ++j) {
+    auto a = dist(mt);
+    box.min_[j] = a;
+    box.max_[j] = a + 100;
+  }
+
+  return box;
+}
+
+std::vector<rtree::Box> insert_random_boxes(rtree::RTree& rtree, size_t count) {
+
+  std::vector<rtree::Box> boxes;
   for(int i=0; i<count; ++i) {
-    rtree::Box box;
-    for(int j=0; j<2; ++j) {
-      auto a = dist(mt);
-      box.min_[j] = a;
-      box.max_[j] = a + 100;
-    }
+    auto box = create_random_box();
     rtree.insert(box, i);
+    boxes.emplace_back(box);
     rtree.print();
   }
+  return boxes;
+}
+
+void print_box(const rtree::Box& box) {
+  std::cout << "(";
+  for(int j=0; j<2; ++j) {
+    std::cout << box.min_[j] << "," << box.max_[j] << "|";
+  }
+  std::cout << ")" << std::endl;
 }
 
 int main() {
   using namespace rtree;
 
   RTree rtree{};
-  insert_random_boxes(rtree, 8);
-  print_as_image("output.png", rtree.data_);
+  auto boxes = insert_random_boxes(rtree, 20);
+
+  auto query = create_random_box();
+  
+  print_box(query);
+  auto intersected_result = rtree.intersects(query);
+
+  for(auto&& r : intersected_result) {
+    print_box(boxes[r]);
+  }
+  
+  print_as_image_with_query("output.png", rtree.data_, query);
   Writer writer{};
   writer.write("output", rtree);
+  
 
   Reader reader{};
   auto loaded = reader.read("output");

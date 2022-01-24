@@ -109,6 +109,7 @@ int split(std::vector<Rect>& rects, std::vector<Node>& nodes, int fanout, int ol
 
   Rect new_parent_rect;
   new_parent_rect.child_ = new_node_offset;
+  new_parent_rect.id_ = -1;
   int new_parent_rect_offset = rects.size();
   rects.emplace_back(new_parent_rect);
 
@@ -176,6 +177,7 @@ void init_rtree(BasicRTreeData<D, F>& rtree) {
   rtree.nodes_.emplace_back(root_node);
 
   Rect root_rect;
+  root_rect.id_ = -1;
   root_rect.child_ = 0;
 
   rtree.rects_.emplace_back(root_rect);
@@ -210,6 +212,7 @@ void RTree::insert(const Box& box, int id) {
     
     Rect root_rect;
     root_rect.child_ = root_node_offset;
+    root_rect.id_ = -1;
     data_.root_rect_offset_ = data_.rects_.size();
     data_.rects_.emplace_back(root_rect);
     refresh_rect(data_.nodes_, data_.rects_, data_.root_rect_offset_);    
@@ -292,22 +295,7 @@ void RTree::print() {
   }
 }
 
-void print_as_image(const std::string& filename, const RTreeData& rtree) {
-  cairo_surface_t *surface;
-  cairo_t *cr;
-  cairo_status_t status;
-  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 1000);
-  status = cairo_surface_status(surface);
-  if (status != CAIRO_STATUS_SUCCESS) {
-    std::cout << cairo_status_to_string(status) << std::endl;
-    return;
-  }
-  
-  cr = cairo_create(surface);
-
-  cairo_set_source_rgb(cr, 255, 255, 255);
-  cairo_paint(cr);
-
+void print_tree(cairo_t* cr, const RTreeData& rtree) {
   auto set_color_by_level = [cr](auto level) {
 			      switch(level%3) {
 			      case 0:
@@ -357,13 +345,80 @@ void print_as_image(const std::string& filename, const RTreeData& rtree) {
     ++level;
     set_color_by_level(level);
   }
- 
+}
 
+void print_query(cairo_t* cr, const Box& query) {
+  cairo_set_source_rgba(cr, 255, 0, 0, 255);
+  cairo_set_line_width(cr, 2);
+
+  cairo_rectangle (cr, query.min_[0], query.min_[1],
+                   query.max_[0] - query.min_[0], query.max_[1] - query.min_[1]);
+  cairo_stroke (cr);
+
+  cairo_save(cr);
+  cairo_set_font_size(cr, 30);
+  cairo_move_to(cr, query.min_[0], query.min_[1]);
+  cairo_show_text(cr, "Q");
+  cairo_restore(cr);
+}
+
+
+
+
+void print_as_image(const std::string& filename, const RTreeData& rtree) {
+  cairo_surface_t *surface;
+  cairo_t *cr;
+  cairo_status_t status;
+  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 1000);
+  status = cairo_surface_status(surface);
+  if (status != CAIRO_STATUS_SUCCESS) {
+    std::cout << cairo_status_to_string(status) << std::endl;
+    return;
+  }
+  
+  cr = cairo_create(surface);
+
+  cairo_set_source_rgb(cr, 255, 255, 255);
+  cairo_paint(cr);
+
+  print_tree(cr, rtree);
   status = cairo_surface_write_to_png(surface, filename.c_str());
+
   if (status != CAIRO_STATUS_SUCCESS) {
     std::cout << cairo_status_to_string(status) << std::endl;
   }
+
+  cairo_destroy(cr);  
 }
+
+void print_as_image_with_query(const std::string& filename, const RTreeData& rtree, const Box& query) {
+  cairo_surface_t *surface;
+  cairo_t *cr;
+  cairo_status_t status;
+  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 1000);
+  status = cairo_surface_status(surface);
+  if (status != CAIRO_STATUS_SUCCESS) {
+    std::cout << cairo_status_to_string(status) << std::endl;
+    return;
+  }
+  
+  cr = cairo_create(surface);
+
+  cairo_set_source_rgb(cr, 255, 255, 255);
+  cairo_paint(cr);
+
+  print_tree(cr, rtree);
+  print_query(cr, query);
+
+  status = cairo_surface_write_to_png(surface, filename.c_str());
+
+  if (status != CAIRO_STATUS_SUCCESS) {
+    std::cout << cairo_status_to_string(status) << std::endl;
+  }
+
+  cairo_destroy(cr);  
+}
+
 
 Reader::Reader() {}
 
