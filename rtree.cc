@@ -5,6 +5,8 @@
 #include <filesystem>
 #include <fstream>
 
+#include "box.h"
+
 namespace rtree {
 
 void refresh_rect(std::vector<Node>& nodes, std::vector<Rect>& rects, int rect_offset) {
@@ -208,6 +210,27 @@ void RTree::insert(const Box& box, int id) {
     data_.rects_.emplace_back(root_rect);
     refresh_rect(data_.nodes_, data_.rects_, data_.root_rect_offset_);    
   }
+}
+
+void intersects_impl(const Box& box, const RTreeData& data, int rect_offset, std::vector<int>& result) {
+  const auto& rect = data.rects_[rect_offset];
+
+  if (is_overlapped(rect.box_, box)) {
+    if (rect.id_ >= 0)
+      result.emplace_back(rect.id_);
+
+    const auto& child_node = data.nodes_[rect.child_];
+
+    for(int i=0; i<child_node.size_; ++i) {
+      intersects_impl(box, data, child_node.rects_[i], result);
+    }
+  }
+}
+
+std::vector<int> RTree::intersects(const Box& box) {
+  std::vector<int> result;
+  intersects_impl(box, data_, data_.root_rect_offset_, result);
+  return result;
 }
 
 Writer::Writer() {}

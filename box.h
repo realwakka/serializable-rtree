@@ -1,6 +1,8 @@
 #ifndef BOX_H_
 #define BOX_H_
 
+namespace rtree {
+
 template <int D>
 struct BasicBox {
   int min_[D];
@@ -19,7 +21,10 @@ int area(const BasicBox<D>& box) {
 }
 
 template <int D>
-bool intersects(const BasicBox<D>& r1, const BasicBox<D>& r2) {
+bool is_overlapped(const BasicBox<D>& r1, const BasicBox<D>& r2) {
+  for(auto i=0; i<D; ++i)
+    if (r1.min_[i] > r2.max_[i] || r1.max_[i] < r2.min_[i])
+      return false;
   return true;
 }
 
@@ -43,6 +48,8 @@ BasicBox<D> bounding_box(const BasicBox<D>& a, const BasicBox<D>& b) {
     ret.max_[i] = std::max(a.max_[i], b.max_[i]);
   }
   return ret;
+}
+
 }
 
 #endif

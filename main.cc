@@ -10,8 +10,8 @@ void insert_random_boxes(rtree::RTree& rtree, size_t count) {
   std::mt19937 mt(rd());
   
   std::uniform_int_distribution<int> dist(0, 900);
-  for(int i=0; i<8; ++i) {
-    Box box;
+  for(int i=0; i<count; ++i) {
+    rtree::Box box;
     for(int j=0; j<2; ++j) {
       auto a = dist(mt);
       box.min_[j] = a;
@@ -24,8 +24,9 @@ void insert_random_boxes(rtree::RTree& rtree, size_t count) {
 
 int main() {
   using namespace rtree;
+
   RTree rtree{};
-  insert_random_boxes(rtree, 4);
+  insert_random_boxes(rtree, 8);
   print_as_image("test1.png", rtree.data_);
   Writer writer{};
   writer.write("test", rtree);

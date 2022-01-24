@@ -40,6 +40,7 @@ class RTree {
  public:
   RTree();
   void insert(const Box& box, int id);
+  std::vector<int> intersects(const Box& box);
   void print();
   
   RTreeData data_;
