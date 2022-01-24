@@ -27,13 +27,12 @@ int main() {
 
   RTree rtree{};
   insert_random_boxes(rtree, 8);
-  print_as_image("test1.png", rtree.data_);
+  print_as_image("output.png", rtree.data_);
   Writer writer{};
-  writer.write("test", rtree);
+  writer.write("output", rtree);
 
   Reader reader{};
-  auto loaded = reader.read("test");
-
+  auto loaded = reader.read("output");
   loaded.print();
   return 0;
 }
