@@ -9,7 +9,8 @@
 
 namespace rtree {
 
-void refresh_rect(std::vector<Node>& nodes, std::vector<Rect>& rects, int rect_offset) {
+template<int D, int F>
+void refresh_rect(std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& rects, int rect_offset) {
   auto& rect = rects[rect_offset];
 
   assert(rect.child_ >= 0);
@@ -17,14 +18,14 @@ void refresh_rect(std::vector<Node>& nodes, std::vector<Rect>& rects, int rect_o
 
   auto& child_node = nodes[rect.child_];
 
-  for(int j=0; j<dim; ++j) {  
+  for(int j=0; j<D; ++j) {  
     rect.box_.min_[j] = rects[child_node.rects_[0]].box_.min_[j];
     rect.box_.max_[j] = rects[child_node.rects_[0]].box_.max_[j];
   }
 
   for(int i=1; i<child_node.size_; ++i) {
     auto& child_rect = rects[child_node.rects_[i]];
-    for(int j=0; j<dim; ++j) {
+    for(int j=0; j<D; ++j) {
       rect.box_.min_[j] = std::min(rect.box_.min_[j], child_rect.box_.min_[j]);
       rect.box_.max_[j] = std::max(rect.box_.max_[j], child_rect.box_.max_[j]);      
     }
@@ -132,13 +133,15 @@ int choose_subtree(const Node& node, const Rect& rect, const std::vector<Rect>& 
   return selected_rect_offset;
 }
 
-int insert_recursive(int new_rect_offset, int target_node_offset, std::vector<Node>& nodes, std::vector<Rect>& rects) {
+template<int D, int F>
+int insert_recursive(int new_rect_offset, int target_node_offset,
+                     std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& rects) {
   auto& node = nodes[target_node_offset];
   const Rect& new_rect = rects[new_rect_offset];  
 
   if (node.size_ == 0 || rects[nodes[target_node_offset].rects_[0]].child_ == -1) { // leaf
-    if (node.size_ == fanout) { // full need to split
-      return split(rects, nodes, fanout, target_node_offset, new_rect_offset);
+    if (node.size_ == F) { // full need to split
+      return split(rects, nodes, F, target_node_offset, new_rect_offset);
     } else {
       node.rects_[node.size_] = new_rect_offset;
       ++node.size_;
@@ -152,8 +155,8 @@ int insert_recursive(int new_rect_offset, int target_node_offset, std::vector<No
     if (new_parent_rect_offset == -1) {
       return -1;
     } else {
-      if (node.size_ == fanout) { // full need to split
-	return split(rects, nodes, fanout, target_node_offset, new_parent_rect_offset);
+      if (node.size_ == F) { // full need to split
+	return split(rects, nodes, F, target_node_offset, new_parent_rect_offset);
       } else {
 	node.rects_[node.size_] = new_parent_rect_offset;
 	++node.size_;
@@ -163,10 +166,11 @@ int insert_recursive(int new_rect_offset, int target_node_offset, std::vector<No
   }
 }
 
-void init_rtree(RTreeData& rtree) {
+template<int D, int F>
+void init_rtree(BasicRTreeData<D, F>& rtree) {
   Node root_node;
   root_node.size_ = 0;
-  for(int i=0; i<fanout; ++i)
+  for(int i=0; i<F; ++i)
     root_node.rects_[i] = -1;
 
   rtree.nodes_.emplace_back(root_node);

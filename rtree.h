@@ -10,16 +10,18 @@
 
 namespace rtree {
 
-constexpr int dim = 2;
-constexpr int fanout = 3;
+template <int D>
+struct Dimension {
+  static const int value = D;
+};
 
-template<int D, int F>
+template<int F>
 struct BasicNode {
   int size_;
   int rects_[F];
 };
 
-using Node = BasicNode<2, 3>;
+using Node = BasicNode<3>;
 
 template<int D>
 struct BasicRect {
@@ -30,11 +32,14 @@ struct BasicRect {
 
 using Rect = BasicRect<2>;
 
-struct RTreeData {
-  std::vector<Node> nodes_;
-  std::vector<Rect> rects_;
+template<int D, int F>
+struct BasicRTreeData {
+  std::vector<BasicNode<F>> nodes_;
+  std::vector<BasicRect<D>> rects_;
   int root_rect_offset_;
 };
+
+using RTreeData = BasicRTreeData<2, 3>;
 
 class RTree {
  public:
