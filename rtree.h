@@ -1,7 +1,6 @@
 #ifndef RTREE_H_
 #define RTREE_H_
 
-#include <cairo.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -39,11 +38,18 @@ using RTreeData = BasicRTreeData<2, 3>;
 class RTree {
  public:
   RTree();
+  explicit RTree(const RTreeData& data);
   void insert(const Box& box, int id);
   std::vector<int> intersects(const Box& box);
   std::vector<int> knn(const Point& p, int k);
   void print();
-  
+
+  const RTreeData& data() const { return data_; }
+  const Rect& root() const { return data_.rects_[data_.root_rect_offset_]; }
+  const Rect& rect(int offset) const { return data_.rects_[offset]; }
+  const Node& node(int offset) const { return data_.nodes_[offset]; }
+
+ private:
   RTreeData data_;
 };
 
@@ -58,9 +64,6 @@ class Reader {
   Reader();
   RTree read(const std::string& path);
 };
-
-void print_as_image(const std::string& filename, const RTreeData& rtree);
-void print_as_image_with_query(const std::string& filename, const RTreeData& rtree, const Box& query);
 
 }
 

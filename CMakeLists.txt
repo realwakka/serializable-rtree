@@ -4,13 +4,20 @@ project(serializable-rtree)
 
 set (CMAKE_CXX_STANDARD 17)
 
-include_directories(/usr/include/cairo)
+
 
 add_library(rtree
   rtree.cc
   )
 
+add_library(rtree_img
+  image_util.cc
+  )
+
+target_include_directories(rtree_img PUBLIC /usr/include/cairo)
+
 add_executable(test test.cc)
-target_link_libraries(test rtree cairo)
+target_link_libraries(test rtree rtree_img cairo)
+
 
 

@@ -4,6 +4,7 @@
 #include <random>
 
 #include "rtree.h"
+#include "image_util.h"
 
 rtree::Box create_random_box() {
   std::random_device rd;
@@ -54,7 +55,7 @@ int main() {
     print_box(boxes[r]);
   }
   
-  print_as_image_with_query("output.png", rtree.data_, query);
+  util::print_as_image_with_query("output.png", rtree.data(), query);
   Writer writer{};
   writer.write("output", rtree);
 
