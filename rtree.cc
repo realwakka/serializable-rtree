@@ -4,7 +4,7 @@
 #include <limits>
 #include <filesystem>
 #include <fstream>
-
+#include <queue>
 #include "box.h"
 
 namespace rtree {
@@ -455,5 +455,36 @@ RTree Reader::read(const std::string& path) {
   rtree.data_ = data;
   return rtree;
 }
+
+std::vector<int> knn_impl(const RTreeData& data, const Point& query, int k) {
+  auto cmp = [&data, &query] (int a, int b) {
+               return get_mindist(data.rects_[a].box_, query) > get_mindist(data.rects_[b].box_, query);
+             };
+
+  std::priority_queue<int, std::vector<int>, decltype(cmp)> q{cmp};
+  q.emplace(data.root_rect_offset_);
+
+  std::vector<int> result;
+  while(result.size() < k) {
+    while(data.rects_[q.top()].child_ >= 0) {
+      auto child_node_offset = data.rects_[q.top()].child_;     
+      const auto& child_node = data.nodes_[child_node_offset];
+      q.pop();
+
+      for(int i=0; i < child_node.size_; ++i)
+        q.emplace(child_node.rects_[i]);
+    }
+
+    result.emplace_back(q.top());
+    q.pop();
+  }
+
+  return result;
+}
+
+std::vector<int> RTree::knn(const Point& query, int k) {
+  return knn_impl(data_, query, k);
+}
+
 
 }

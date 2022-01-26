@@ -1,7 +1,17 @@
 #ifndef BOX_H_
 #define BOX_H_
 
+#include <cmath>
+#include <algorithm>
+
 namespace rtree {
+
+template <int D>
+struct BasicPoint {
+  int value_[D];
+};
+
+using Point = BasicPoint<2>;
 
 template <int D>
 struct BasicBox {
@@ -48,6 +58,15 @@ BasicBox<D> bounding_box(const BasicBox<D>& a, const BasicBox<D>& b) {
     ret.max_[i] = std::max(a.max_[i], b.max_[i]);
   }
   return ret;
+}
+
+template <int D>
+float get_mindist(const BasicBox<D>& b, const BasicPoint<D>& p) {
+  int acc = 0;
+  for(int i=0; i<D; ++i)
+    acc += std::max(std::max(b.min_[i] - p.value_[i], p.value_[i] - b.max_[i]), 0);
+
+  return std::sqrt(acc);
 }
 
 }

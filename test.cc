@@ -44,8 +44,7 @@ int main() {
   using namespace rtree;
 
   RTree rtree{};
-  auto boxes = insert_random_boxes(rtree, 20);
-
+  auto boxes = insert_random_boxes(rtree, 16);
   auto query = create_random_box();
   
   print_box(query);
@@ -58,6 +57,19 @@ int main() {
   print_as_image_with_query("output.png", rtree.data_, query);
   Writer writer{};
   writer.write("output", rtree);
+
+  {
+    Point p;
+    p.value_[0] = 500;
+    p.value_[1] = 500;
+
+    auto knn_result = rtree.knn(p, 5);
+
+    for(auto&& i : knn_result) {
+      std::cout << i << " ";
+    }
+    std::cout << std::endl;
+  }
   
 
   Reader reader{};
