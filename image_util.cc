@@ -126,5 +126,39 @@ void print_as_image_with_query(const std::string& filename, const RTreeData& rtr
   cairo_destroy(cr);  
 }
 
+void print_as_image_with_query_point(const std::string& filename, const RTreeData& rtree, const Point& p) {
+  cairo_surface_t *surface;
+  cairo_t *cr;
+  cairo_status_t status;
+  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1000, 1000);
+  status = cairo_surface_status(surface);
+  if (status != CAIRO_STATUS_SUCCESS) {
+    std::cout << cairo_status_to_string(status) << std::endl;
+    return;
+  }
+  
+  cr = cairo_create(surface);
+
+  cairo_set_source_rgb(cr, 255, 255, 255);
+  cairo_paint(cr);
+
+  print_tree(cr, rtree);
+
+  Box box;
+  for(int i=0; i<2; ++i) {
+    box.max_[i] = p.value_[i];
+    box.min_[i] = p.value_[i];    
+  }
+  print_query(cr, box);
+
+  status = cairo_surface_write_to_png(surface, filename.c_str());
+
+  if (status != CAIRO_STATUS_SUCCESS) {
+    std::cout << cairo_status_to_string(status) << std::endl;
+  }
+
+  cairo_destroy(cr);  
+}
+
 }
 }

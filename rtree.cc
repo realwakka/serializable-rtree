@@ -272,29 +272,44 @@ void Writer::write(const std::string& path, const RTree& rtree) {
   }
 }
 
+void print_rect(const RTree& rtree, int offset) {
+  std::cout << "|" << offset << "(" << rtree.rect(offset).child_ << ")"<< "|";
+}
+
+void print_node(const RTree& rtree, int offset) {
+  std::cout << "#" << offset <<"{";
+  const auto& node = rtree.node(offset);
+  for(int i=0; i<node.size_; ++i)
+    print_rect(rtree, node.rects_[i]);
+
+  std::cout << "}";
+}
+
 void RTree::print() {
   std::vector<int> rects;
   rects.emplace_back(data_.root_rect_offset_);
-  std::cout << "|" << data_.root_rect_offset_ << "|" << std::endl;
+
+  print_rect(*this, rects.front());
+  std::cout << std::endl;
   while(!rects.empty()) {
     std::vector<int> next_rects;
 
     for(auto r : rects) {
       if (data_.rects_[r].child_ < 0)
 	continue;
+
+      print_node(*this, data_.rects_[r].child_);
       auto& node = data_.nodes_[data_.rects_[r].child_];
-      std::cout << "(" << data_.rects_[r].child_ << ")";
-      std::cout << "|";
       for(auto i=0; i<node.size_; ++i) {
-	std::cout << node.rects_[i] << " ";
-	next_rects.emplace_back(node.rects_[i]);
+        next_rects.emplace_back(node.rects_[i]);
       }
-      std::cout << "|";      
     }
 
     std::cout << std::endl;
     rects = std::move(next_rects);
   }
+
+  std::cout << std::endl;  
 }
 
 

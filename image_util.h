@@ -10,6 +10,7 @@ namespace util {
 
 void print_as_image(const std::string& filename, const RTreeData& rtree);
 void print_as_image_with_query(const std::string& filename, const RTreeData& rtree, const Box& query);
+void print_as_image_with_query_point(const std::string& filename, const RTreeData& rtree, const Point& query);
 
 }
 }

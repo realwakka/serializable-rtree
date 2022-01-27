@@ -19,5 +19,9 @@ target_include_directories(rtree_img PUBLIC /usr/include/cairo)
 add_executable(test test.cc)
 target_link_libraries(test rtree rtree_img cairo)
 
+add_executable(test_knn test_knn.cc)
+target_link_libraries(test_knn rtree rtree_img cairo)
+
+
 
 
