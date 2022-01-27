@@ -18,7 +18,7 @@ random data N=8
 KNN Query Result
 ```
 realwakka@realwakka-Home:~/laboratory/serializable-rtree$ ./test_knn 
-KNN results: 10 8 24 4 1
+KNN results: 3 17 1 8 4
 ```
 
-![output](https://user-images.githubusercontent.com/6241577/151318830-d36f1e8a-5724-4bc6-a5fc-0f481f3c79d6.png)
+![output](https://user-images.githubusercontent.com/6241577/151326850-36897791-335a-4e9e-a309-a87ad7bcdddc.png)
