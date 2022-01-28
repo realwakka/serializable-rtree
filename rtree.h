@@ -42,6 +42,7 @@ class RTree {
   void insert(const Box& box, int id);
   std::vector<int> intersects(const Box& box);
   std::vector<int> knn(const Point& p, int k);
+  void remove(int id);
   void print();
 
   const RTreeData& data() const { return data_; }

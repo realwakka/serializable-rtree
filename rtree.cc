@@ -378,5 +378,31 @@ std::vector<int> RTree::knn(const Point& query, int k) {
   return knn_impl(data_, query, k);
 }
 
+// return true if rect should be removed
+bool remove_recursive(RTreeData& data, int rect_offset, int id) {
+  auto& rect = data.rects_[rect_offset];
+  if (rect.child_ >= 0) { // internal
+    auto& child_node = data.nodes_[rect.child_];
+    for(int i=0; i<child_node.size_; ++i) {
+      auto res = remove_recursive(data, child_node.rects_[i], id);
+      if (res) {
+        auto removed_rect_offset = child_node.rects_[i];
+        child_node.size_--;
+        std::swap(child_node.rects_[child_node.size_], child_node.rects_[i]);
+        return child_node.size_ == 0;
+      }
+    }
+  } else { // leaf
+    if (rect.id_ == id)
+      return true;
+    
+  }
+  return false;
+}
+
+void RTree::remove(int id) {
+  remove_recursive(data_, data_.root_rect_offset_, id);
+}
+
 
 }

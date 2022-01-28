@@ -44,8 +44,9 @@ void print_box(const rtree::Box& box) {
 int main() {
   using namespace rtree;
 
+  constexpr auto size = 3;
   RTree rtree{};
-  auto boxes = insert_random_boxes(rtree, 16);
+  auto boxes = insert_random_boxes(rtree, size);
   auto query = create_random_box();
   
   print_box(query);
@@ -71,10 +72,17 @@ int main() {
     }
     std::cout << std::endl;
   }
-  
+
 
   Reader reader{};
   auto loaded = reader.read("output");
   loaded.print();
+
+
+  for(int i=size-1; i>=0; --i) {
+    std::cout << "delete test! : " << i << std::endl;
+    rtree.remove(i);
+    rtree.print();
+  }
   return 0;
 }
