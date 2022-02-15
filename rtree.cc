@@ -425,19 +425,19 @@ void RTree::remove(int id) {
 }
 
 
-template<int D, int F>
-std::vector<int> NewReader<D, F>::intersects(const Box& box) {
+template<int D, int F, class MemoryProvider>
+std::vector<int> NewReader<D, F, MemoryProvider>::intersects(const Box& box) {
   std::vector<int> result;    
   intersects_impl(box, data_, data_.root_rect_offset_, result);
   return result;
 }
 
-template<int D, int F>
-std::vector<int> NewReader<D, F>::knn(const BasicPoint<D>& query, int k) {
+template<int D, int F, class MemoryProvider>
+std::vector<int> NewReader<D, F, MemoryProvider>::knn(const BasicPoint<D>& query, int k) {
   return knn_impl(data_, query, k);  
 }
 
-template class NewReader<2, 3>;
+template class NewReader<2, 3, MappedFileProvider>;
 
 
 }

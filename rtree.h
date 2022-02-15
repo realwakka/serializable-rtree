@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include <cassert>
 
@@ -116,44 +117,60 @@ struct StaticRTreeData {
   int root_rect_offset_;
 };
 
-template<int D, int F>
-class NewReader {
+class MappedFileProvider {
  public:
-  NewReader(const std::string& path) : fd_{-1}, data_{nullptr, nullptr, 0} {
-
+  MappedFileProvider(const std::string& path) {
     fd_ = open(path.c_str(), O_RDONLY);
 
     struct stat s;
     auto status = fstat(fd_, &s);
-    auto size = s.st_size;
+    mapped_size_ = s.st_size;
 
-    const char* mapped = reinterpret_cast<const char*>(mmap(0, size, PROT_READ, MAP_PRIVATE, fd_, 0));
-    const Header* header = reinterpret_cast<const Header*>(mapped);
+    mapped_ = reinterpret_cast<char*>(mmap(0, mapped_size_, PROT_READ, MAP_PRIVATE, fd_, 0));
+  }
+
+  ~MappedFileProvider() {
+    if (mapped_)
+      munmap(mapped_, mapped_size_);
+    if (fd_ > 0)
+      close(fd_);
+  }
+
+  const char* addr() { return mapped_; }
+ private:
+  int fd_;
+  char* mapped_;
+  size_t mapped_size_;
+};
+
+template<int D, int F, class MemoryProvider>
+class NewReader {
+ public:
+
+  template<typename... Args>
+  NewReader(Args&&... args) : provider_{std::forward<Args>(args)...}, data_{nullptr, nullptr, 0} {
+    auto addr = provider_.addr();
+    const Header* header = reinterpret_cast<const Header*>(addr);
     assert(!strncmp(header->magic_, "sidong", 6));
     assert(header->version_ == 1);
     assert(header->dimension_ == D);
     assert(header->fanout_ == F);
 
-    const BasicNode<F>* nodes = reinterpret_cast<const BasicNode<F>*>(&mapped[sizeof(Header)]);
+    const BasicNode<F>* nodes = reinterpret_cast<const BasicNode<F>*>(&addr[sizeof(Header)]);
     const BasicRect<D>* rects = reinterpret_cast<const BasicRect<D>*>(&nodes[header->node_size_]);
 
     data_.nodes_ = nodes;
     data_.rects_ = rects;
     data_.root_rect_offset_ = header->root_rect_offset_;
-    // = {
-    //   .nodes_ = nodes,
-    //   .rects_ = rects,
-    //   .root_rect_offset_ = header->root_rect_offset_
-    // };
   }
-
+  
   
   std::vector<int> intersects(const Box& box);
   std::vector<int> knn(const BasicPoint<D>& p, int k);
 
  private:
+  MemoryProvider provider_;
   StaticRTreeData<D, F> data_;
-  int fd_;
 };
 
 

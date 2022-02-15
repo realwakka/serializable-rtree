@@ -64,7 +64,7 @@ int main() {
   NewWriter writer;
   writer.write("test.rtree", rtree.data());
 
-  NewReader<dim, fanout> reader{std::string{"test.rtree"}};
+  NewReader<dim, fanout, MappedFileProvider> reader{"test.rtree"};
 
   {
     Point p;
