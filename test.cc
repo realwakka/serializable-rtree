@@ -6,6 +6,9 @@
 #include "rtree.h"
 #include "image_util.h"
 
+constexpr auto dim = 2;
+constexpr auto fanout = 3;
+
 rtree::Box create_random_box() {
   std::random_device rd;
   std::mt19937 mt(rd());
@@ -44,7 +47,7 @@ void print_box(const rtree::Box& box) {
 int main() {
   using namespace rtree;
 
-  constexpr auto size = 3;
+  constexpr auto size = 10;
   RTree rtree{};
   auto boxes = insert_random_boxes(rtree, size);
   auto query = create_random_box();
@@ -57,32 +60,52 @@ int main() {
   }
   
   util::print_as_image_with_query("output.png", rtree.data(), query);
-  Writer writer{};
-  writer.write("output", rtree);
+
+  NewWriter writer;
+  writer.write("test.rtree", rtree.data());
+
+  NewReader<dim, fanout> reader{std::string{"test.rtree"}};
 
   {
     Point p;
     p.value_[0] = 500;
     p.value_[1] = 500;
 
-    auto knn_result = rtree.knn(p, 5);
+    auto knn_result = reader.knn(p, 5);
 
     for(auto&& i : knn_result) {
       std::cout << i << " ";
     }
     std::cout << std::endl;
   }
+  
+  
+  // Writer writer{};
+  // writer.write("output", rtree);
+
+  // {
+  //   Point p;
+  //   p.value_[0] = 500;
+  //   p.value_[1] = 500;
+
+  //   auto knn_result = rtree.knn(p, 5);
+
+  //   for(auto&& i : knn_result) {
+  //     std::cout << i << " ";
+  //   }
+  //   std::cout << std::endl;
+  // }
 
 
-  Reader reader{};
-  auto loaded = reader.read("output");
-  loaded.print();
+  // Reader reader{};
+  // auto loaded = reader.read("output");
+  // loaded.print();
 
 
-  for(int i=size-1; i>=0; --i) {
-    std::cout << "delete test! : " << i << std::endl;
-    rtree.remove(i);
-    rtree.print();
-  }
+  // for(int i=size-1; i>=0; --i) {
+  //   std::cout << "delete test! : " << i << std::endl;
+  //   rtree.remove(i);
+  //   rtree.print();
+  // }
   return 0;
 }

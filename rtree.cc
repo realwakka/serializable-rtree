@@ -9,6 +9,19 @@
 
 namespace rtree {
 
+namespace {
+
+template<int D, int F>
+const StaticRTreeData<D, F> make_static(const BasicRTreeData<D, F>& data) {
+  return StaticRTreeData<D, F>{
+    data.nodes_.data(),
+    data.rects_.data(),
+    data.root_rect_offset_
+  };
+}
+}
+
+
 template<int D, int F>
 void refresh_rect(std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& rects, int rect_offset) {
   auto& rect = rects[rect_offset];
@@ -221,7 +234,8 @@ void RTree::insert(const Box& box, int id) {
   }
 }
 
-void intersects_impl(const Box& box, const RTreeData& data, int rect_offset, std::vector<int>& result) {
+template<int D, int F>
+void intersects_impl(const Box& box, const StaticRTreeData<D, F>& data, int rect_offset, std::vector<int>& result) {
   const auto& rect = data.rects_[rect_offset];
 
   if (is_overlapped(rect.box_, box)) {
@@ -238,7 +252,12 @@ void intersects_impl(const Box& box, const RTreeData& data, int rect_offset, std
 
 std::vector<int> RTree::intersects(const Box& box) {
   std::vector<int> result;
-  intersects_impl(box, data_, data_.root_rect_offset_, result);
+  StaticRTreeData<2, 3> static_data = {
+    .nodes_ = data_.nodes_.data(),
+    .rects_ = data_.rects_.data(),
+    .root_rect_offset_ = data_.root_rect_offset_
+  };
+  intersects_impl(box, static_data, data_.root_rect_offset_, result);
   return result;
 }
 
@@ -348,7 +367,8 @@ RTree Reader::read(const std::string& path) {
   return rtree;
 }
 
-std::vector<int> knn_impl(const RTreeData& data, const Point& query, int k) {
+template<int D, int F>
+std::vector<int> knn_impl(const StaticRTreeData<D, F>& data, const Point& query, int k) {
   auto cmp = [&data, &query] (int a, int b) {
                return get_mindist(data.rects_[a].box_, query) > get_mindist(data.rects_[b].box_, query);
              };
@@ -375,7 +395,7 @@ std::vector<int> knn_impl(const RTreeData& data, const Point& query, int k) {
 }
 
 std::vector<int> RTree::knn(const Point& query, int k) {
-  return knn_impl(data_, query, k);
+  return knn_impl<2, 3>(make_static(data_), query, k);
 }
 
 // return true if rect should be removed
@@ -403,6 +423,21 @@ bool remove_recursive(RTreeData& data, int rect_offset, int id) {
 void RTree::remove(int id) {
   remove_recursive(data_, data_.root_rect_offset_, id);
 }
+
+
+template<int D, int F>
+std::vector<int> NewReader<D, F>::intersects(const Box& box) {
+  std::vector<int> result;    
+  intersects_impl(box, data_, data_.root_rect_offset_, result);
+  return result;
+}
+
+template<int D, int F>
+std::vector<int> NewReader<D, F>::knn(const BasicPoint<D>& query, int k) {
+  return knn_impl(data_, query, k);  
+}
+
+template class NewReader<2, 3>;
 
 
 }
