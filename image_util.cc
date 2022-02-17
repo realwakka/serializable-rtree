@@ -5,7 +5,7 @@
 namespace rtree {
 namespace util {
 
-void print_tree(cairo_t* cr, const RTreeData& rtree) {
+void print_tree(cairo_t* cr, const StaticRTreeData<2, 3>& rtree) {
   auto set_color_by_level = [cr](auto level) {
 			      switch(level%3) {
 			      case 0:
@@ -72,7 +72,7 @@ void print_query(cairo_t* cr, const Box& query) {
   cairo_restore(cr);
 }
 
-void print_as_image(const std::string& filename, const RTreeData& rtree) {
+void print_as_image(const std::string& filename, const StaticRTreeData<2, 3>& rtree) {
   cairo_surface_t *surface;
   cairo_t *cr;
   cairo_status_t status;
@@ -98,7 +98,7 @@ void print_as_image(const std::string& filename, const RTreeData& rtree) {
   cairo_destroy(cr);  
 }
 
-void print_as_image_with_query(const std::string& filename, const RTreeData& rtree, const Box& query) {
+void print_as_image_with_query(const std::string& filename, const StaticRTreeData<2, 3>& rtree, const Box& query) {
   cairo_surface_t *surface;
   cairo_t *cr;
   cairo_status_t status;
@@ -126,7 +126,7 @@ void print_as_image_with_query(const std::string& filename, const RTreeData& rtr
   cairo_destroy(cr);  
 }
 
-void print_as_image_with_query_point(const std::string& filename, const RTreeData& rtree, const Point& p) {
+void print_as_image_with_query_point(const std::string& filename, const StaticRTreeData<2, 3>& rtree, const Point& p) {
   cairo_surface_t *surface;
   cairo_t *cr;
   cairo_status_t status;

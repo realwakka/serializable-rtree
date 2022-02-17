@@ -24,17 +24,20 @@ rtree::Box create_random_box() {
   return box;
 }
 
-std::vector<rtree::Box> insert_random_boxes(rtree::RTree& rtree, size_t count) {
+template<typename Tree>
+std::vector<rtree::Box> insert_random_boxes(Tree& rtree, size_t count) {
 
   std::vector<rtree::Box> boxes;
   for(int i=0; i<count; ++i) {
     auto box = create_random_box();
     rtree.insert(box, i);
     boxes.emplace_back(box);
-    rtree.print();
+    rtree.print_tree();
+
   }
   return boxes;
 }
+
 
 void print_box(const rtree::Box& box) {
   std::cout << "(";
@@ -48,37 +51,46 @@ int main() {
   using namespace rtree;
 
   constexpr auto size = 10;
-  RTree rtree{};
-  auto boxes = insert_random_boxes(rtree, size);
-  auto query = create_random_box();
+  // RTree rtree{};
+  // auto boxes = insert_random_boxes(rtree, size);
+  // auto query = create_random_box();
   
-  print_box(query);
-  auto intersected_result = rtree.intersects(query);
+  // print_box(query);
+  // auto intersected_result = rtree.intersects(query);
 
-  for(auto&& r : intersected_result) {
-    print_box(boxes[r]);
-  }
+  // for(auto&& r : intersected_result) {
+  //   print_box(boxes[r]);
+  // }
   
-  util::print_as_image_with_query("output.png", rtree.data(), query);
+  // util::print_as_image_with_query("output.png", rtree.data(), query);
 
-  NewWriter writer;
-  writer.write("test.rtree", rtree.data());
+  // NewWriter writer;
+  // writer.write("test.rtree", rtree.data());
 
-  NewReader<dim, fanout, MappedFileProvider> reader{"test.rtree"};
+  // NewReader<dim, fanout, MappedFileProvider> reader{"test.rtree"};
 
-  {
-    Point p;
-    p.value_[0] = 500;
-    p.value_[1] = 500;
+  // {
+  //   Point p;
+  //   p.value_[0] = 500;
+  //   p.value_[1] = 500;
 
-    auto knn_result = reader.knn(p, 5);
+  //   auto knn_result = reader.knn(p, 5);
 
-    for(auto&& i : knn_result) {
-      std::cout << i << " ";
-    }
-    std::cout << std::endl;
-  }
+  //   for(auto&& i : knn_result) {
+  //     std::cout << i << " ";
+  //   }
+  //   std::cout << std::endl;
+  // }
   
+
+  Writer2<dim, fanout, MappedFileProvider> writer2{"asdf.rtree"};
+  insert_random_boxes(writer2, 10);
+  util::print_as_image("output.png", writer2.static_data());
+  // insert_random_boxes(writer2, 1);  
+
+  // auto box = create_random_box();
+  // writer2.insert(box, 0);
+
   
   // Writer writer{};
   // writer.write("output", rtree);

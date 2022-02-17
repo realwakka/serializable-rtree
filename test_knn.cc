@@ -58,6 +58,6 @@ int main() {
   }
   std::cout << std::endl;
 
-  util::print_as_image_with_query_point("output.png", rtree.data(), p);
+  util::print_as_image_with_query_point("output.png", make_static(rtree.data()), p);
   return 0;
 }

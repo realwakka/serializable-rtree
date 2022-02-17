@@ -11,23 +11,16 @@ namespace rtree {
 
 namespace {
 
-template<int D, int F>
-const StaticRTreeData<D, F> make_static(const BasicRTreeData<D, F>& data) {
-  return StaticRTreeData<D, F>{
-    data.nodes_.data(),
-    data.rects_.data(),
-    data.root_rect_offset_
-  };
-}
 }
 
 
+
 template<int D, int F>
-void refresh_rect(std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& rects, int rect_offset) {
+void refresh_rect(BasicNode<F>* nodes, BasicRect<D>* rects, int rect_offset) {
   auto& rect = rects[rect_offset];
 
-  assert(rect.child_ >= 0);
-  assert(rect.child_ < nodes.size());
+  // assert(rect.child_ >= 0);
+  // assert(rect.child_ < nodes.size());
 
   auto& child_node = nodes[rect.child_];
 
@@ -45,8 +38,17 @@ void refresh_rect(std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& r
   }
 }
 
+template<int D, int F>
+void refresh_rect(std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& rects, int rect_offset) {
+  refresh_rect(nodes.data(), rects.data(), rect_offset);
+}
+
+template<int D>
 std::pair<std::vector<int>, std::vector<int>> quadratic_split(const std::vector<int>& rect_offsets,
-							      const std::vector<Rect>& rects) {
+							      const BasicRect<D>* rects) {
+
+// std::pair<std::vector<int>, std::vector<int>> quadratic_split(const std::vector<int>& rect_offsets,
+// 							      const std::vector<Rect>& rects) {
 
   auto calc_deadspace = [](const auto& a, const auto& b) {
 			  Box c = bounding_box(a,b);
@@ -107,7 +109,7 @@ int split(std::vector<Rect>& rects, std::vector<Node>& nodes, int fanout, int ol
   std::vector<int> rect_offsets{old_node.rects_, old_node.rects_ + old_node.size_};
   rect_offsets.emplace_back(new_rect_offset);
 
-  auto result = quadratic_split(rect_offsets, rects);
+  auto result = quadratic_split(rect_offsets, rects.data());
 
   for(int i=0; i<result.first.size(); ++i)
     old_node.rects_[i] = result.first[i];
@@ -132,7 +134,8 @@ int split(std::vector<Rect>& rects, std::vector<Node>& nodes, int fanout, int ol
 }
 
 
-int choose_subtree(const Node& node, const Rect& rect, const std::vector<Rect>& rects) {
+template<int D, int F>
+int choose_subtree(const BasicNode<F>& node, const BasicRect<D>& rect, const BasicRect<D>* rects) {
   assert(node.size_ > 0);
 
   auto selected_rect_offset = node.rects_[0];
@@ -146,6 +149,11 @@ int choose_subtree(const Node& node, const Rect& rect, const std::vector<Rect>& 
   }
   return selected_rect_offset;
 }
+
+int choose_subtree(const Node& node, const Rect& rect, const std::vector<Rect>& rects) {
+  return choose_subtree(node, rect, rects.data());
+}
+
 
 template<int D, int F>
 int insert_recursive(int new_rect_offset, int target_node_offset,
@@ -291,34 +299,38 @@ void Writer::write(const std::string& path, const RTree& rtree) {
   }
 }
 
-void print_rect(const RTree& rtree, int offset) {
-  std::cout << "|" << offset << "(" << rtree.rect(offset).child_ << ")"<< "|";
+template<int D>
+void print_rect(const BasicRect<D>* rects, int offset) {
+  std::cout << "|" << offset << "(" << rects[offset].child_ << ")"<< "|";
 }
 
-void print_node(const RTree& rtree, int offset) {
+
+template<int D, int F>
+void print_node(const StaticRTreeData<D, F>& rtree, int offset) {
   std::cout << "#" << offset <<"{";
-  const auto& node = rtree.node(offset);
+  const auto& node = rtree.nodes_[offset];
   for(int i=0; i<node.size_; ++i)
-    print_rect(rtree, node.rects_[i]);
+    print_rect(rtree.rects_, node.rects_[i]);
 
   std::cout << "}";
 }
 
-void RTree::print() {
+template<int D, int F>
+void print_impl(const StaticRTreeData<D, F>& rtree) {
   std::vector<int> rects;
-  rects.emplace_back(data_.root_rect_offset_);
+  rects.emplace_back(rtree.root_rect_offset_);
 
-  print_rect(*this, rects.front());
+  print_rect(rtree.rects_, rects.front());
   std::cout << std::endl;
   while(!rects.empty()) {
     std::vector<int> next_rects;
 
     for(auto r : rects) {
-      if (data_.rects_[r].child_ < 0)
+      if (rtree.rects_[r].child_ < 0)
 	continue;
 
-      print_node(*this, data_.rects_[r].child_);
-      auto& node = data_.nodes_[data_.rects_[r].child_];
+      print_node(rtree, rtree.rects_[r].child_);
+      auto& node = rtree.nodes_[rtree.rects_[r].child_];
       for(auto i=0; i<node.size_; ++i) {
         next_rects.emplace_back(node.rects_[i]);
       }
@@ -329,6 +341,10 @@ void RTree::print() {
   }
 
   std::cout << std::endl;  
+}
+
+void RTree::print() {
+  print_impl(make_static(data()));
 }
 
 
@@ -426,6 +442,137 @@ void RTree::remove(int id) {
 
 
 template<int D, int F, class MemoryProvider>
+int Writer2<D, F, MemoryProvider>::split(int fanout, int old_node_offset, int new_rect_offset) {
+  Rect& new_rect = rects_[new_rect_offset];
+
+
+  auto& old_node = nodes_[old_node_offset];
+  std::vector<int> rect_offsets{old_node.rects_, old_node.rects_ + old_node.size_};
+  rect_offsets.emplace_back(new_rect_offset);
+
+  auto result = quadratic_split(rect_offsets, rects_);
+
+  for(int i=0; i<result.first.size(); ++i)
+    old_node.rects_[i] = result.first[i];
+  old_node.size_ = result.first.size();
+
+  // Node new_node;
+  Node* new_node = insert_node();
+  for(int i=0; i<result.second.size(); ++i)
+    new_node->rects_[i] = result.second[i];
+  new_node->size_ = result.second.size();
+
+  int new_node_offset = header_->node_size_ - 1;
+  // nodes_.emplace_back(new_node);
+
+  // Rect new_parent_rect;
+  Rect* new_parent_rect = insert_rect();  
+  new_parent_rect->child_ = new_node_offset;
+  new_parent_rect->id_ = -1;
+  int new_parent_rect_offset = header_->rect_size_ - 1;
+  // rects_.emplace_back(new_parent_rect);
+
+  refresh_rect(nodes_, rects_, new_parent_rect_offset);
+
+  return new_parent_rect_offset;
+}
+
+
+template<int D, int F, class MemoryProvider>
+int Writer2<D, F, MemoryProvider>::insert_recursive(int new_rect_offset, int target_node_offset) {
+  auto& node = nodes_[target_node_offset];
+  const Rect& new_rect = rects_[new_rect_offset];  
+
+  if (node.size_ == 0 || rects_[nodes_[target_node_offset].rects_[0]].child_ == -1) { // leaf
+    if (node.size_ == F) { // full need to split
+      return split(F, target_node_offset, new_rect_offset);
+    } else {
+      node.rects_[node.size_] = new_rect_offset;
+      ++node.size_;
+      return -1;
+    }
+  } else { // internal
+    auto chosen_rect_offset = choose_subtree(node, new_rect, rects_);
+    auto chosen_node_offset = rects_[chosen_rect_offset].child_;
+    auto new_parent_rect_offset = insert_recursive(new_rect_offset, chosen_node_offset);
+    refresh_rect(nodes_, rects_, chosen_rect_offset);    
+    if (new_parent_rect_offset == -1) {
+      return -1;
+    } else {
+      if (node.size_ == F) { // full need to split
+	return split(F, target_node_offset, new_parent_rect_offset);
+      } else {
+	node.rects_[node.size_] = new_parent_rect_offset;
+	++node.size_;
+	return -1;
+      }
+    }
+  }
+}
+
+
+template<int D, int F, class MemoryProvider>
+void Writer2<D, F, MemoryProvider>::insert(const Box& box, int id) {
+  Rect* rect = insert_rect();
+  rect->box_ = box;
+  rect->child_ = -1;
+  rect->id_ = id;
+    
+  // Rect rect;
+  // rect.box_ = box;
+  // rect.child_ = -1;
+  // rect.id_ = id;
+
+  auto offset = header_->rect_size_ - 1;
+  
+  // auto offset = data_.rects_.size();
+  // data_.rects_.emplace_back(rect);
+
+  auto root_node_offset = rects_[header_->root_rect_offset_].child_;
+  auto res = insert_recursive(offset, root_node_offset);
+  refresh_rect(nodes_, rects_, header_->root_rect_offset_);    
+
+  // auto root_node_offset = data_.rects_[data_.root_rect_offset_].child_;
+  // auto res = insert_recursive(offset, root_node_offset, data_.nodes_, data_.rects_);
+  // refresh_rect(nodes_, rects_, header_->root_rect_offset_);
+  
+  if (res >= 0) {
+    auto new_root_node = insert_node();
+    new_root_node->rects_[0] = header_->root_rect_offset_;
+    new_root_node->rects_[1] = res;
+    new_root_node->size_ = 2;
+
+    root_node_offset = header_->node_size_ - 1;
+      
+    // Node new_root_node;
+    // new_root_node.rects_[0] = data_.root_rect_offset_;
+    // new_root_node.rects_[1] = res;
+    // new_root_node.size_ = 2;    
+
+    // root_node_offset = data_.nodes_.size();
+    // data_.nodes_.emplace_back(new_root_node);
+
+    auto root_rect = insert_rect();
+    root_rect->child_ = root_node_offset;
+    root_rect->id_ = -1;
+    header_->root_rect_offset_ = header_->rect_size_ - 1;
+    refresh_rect(nodes_, rects_, header_->root_rect_offset_);
+    
+    // Rect root_rect;
+    // root_rect.child_ = root_node_offset;
+    // root_rect.id_ = -1;
+    // data_.root_rect_offset_ = data_.rects_.size();
+    // data_.rects_.emplace_back(root_rect);
+    // refresh_rect(data_.nodes_, data_.rects_, data_.root_rect_offset_);    
+  }
+}
+
+template<int D, int F, class MemoryProvider>
+void Writer2<D, F, MemoryProvider>::print_tree() {
+  print_impl(static_data());
+}
+
+template<int D, int F, class MemoryProvider>
 std::vector<int> NewReader<D, F, MemoryProvider>::intersects(const Box& box) {
   std::vector<int> result;    
   intersects_impl(box, data_, data_.root_rect_offset_, result);
@@ -437,7 +584,10 @@ std::vector<int> NewReader<D, F, MemoryProvider>::knn(const BasicPoint<D>& query
   return knn_impl(data_, query, k);  
 }
 
+
 template class NewReader<2, 3, MappedFileProvider>;
+template class Writer2<2, 3, MappedFileProvider>;
+
 
 
 }
