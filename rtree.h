@@ -65,18 +65,6 @@ class RTree {
   RTreeData data_;
 };
 
-class Writer {
- public:
-  Writer();
-  void write(const std::string& path, const RTree& rtree);
-};
-
-class Reader {
- public:
-  Reader();
-  RTree read(const std::string& path);
-};
-
 struct Header {
   char magic_[6];
   int version_;
@@ -138,7 +126,15 @@ class MappedFileProvider {
     auto status = fstat(fd_, &s);
     mapped_size_ = s.st_size;
 
-    mapped_ = reinterpret_cast<char*>(mmap(0, mapped_size_, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd_, 0));
+    if (!mapped_size_) {
+      if (ftruncate(fd_, sizeof(Header)) < 0) {
+        perror("failed increase ftruncate");
+        exit(1);
+      }
+      mapped_size_ = sizeof(Header);
+    }
+    
+    mapped_ = reinterpret_cast<char*>(mmap(0, mapped_size_, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0));
     if (mapped_ == MAP_FAILED) {
       perror("failed MappedFileProvider mmap");
       exit(1);
@@ -153,6 +149,7 @@ class MappedFileProvider {
   }
 
   char* addr() { return mapped_; }
+  const char* addr() const { return mapped_; }  
   size_t size() const { return mapped_size_; }
 
   char* increase(size_t size) {
@@ -174,7 +171,7 @@ class MappedFileProvider {
       exit(1);
     }
 
-    mapped_ = reinterpret_cast<char*>(mmap(0, mapped_size_ + size, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd_, 0));
+    mapped_ = reinterpret_cast<char*>(mmap(0, mapped_size_ + size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0));
     if (mapped_ == MAP_FAILED) {
       perror("failed increase mmap");
       exit(1);
@@ -192,11 +189,11 @@ class MappedFileProvider {
 };
 
 template<int D, int F, class MemoryProvider>
-class NewReader {
+class Reader {
  public:
 
   template<typename... Args>
-  NewReader(Args&&... args) : provider_{std::forward<Args>(args)...}, data_{nullptr, nullptr, 0} {
+  Reader(Args&&... args) : provider_{std::forward<Args>(args)...}, data_{nullptr, nullptr, 0} {
     auto addr = provider_.addr();
     const Header* header = reinterpret_cast<const Header*>(addr);
     assert(!strncmp(header->magic_, "sidong", 6));
@@ -216,13 +213,15 @@ class NewReader {
   std::vector<int> intersects(const Box& box);
   std::vector<int> knn(const BasicPoint<D>& p, int k);
 
+  StaticRTreeData<D, F> data() { return data_; }
+
  private:
-  MemoryProvider provider_;
+  const MemoryProvider provider_;
   StaticRTreeData<D, F> data_;
 };
 
 template<int D, int F, class MemoryProvider>
-class Writer2 {
+class Writer {
  public:
   BasicNode<F>* insert_node() {
     header_ = reinterpret_cast<Header*>(provider_.increase(sizeof(BasicRect<D>)));
@@ -246,7 +245,7 @@ class Writer2 {
   }
 
   template<typename... Args>    
-  Writer2(Args&&... args) : provider_{std::forward<Args>(args)...} {
+  Writer(Args&&... args) : provider_{std::forward<Args>(args)...} {
     provider_.increase(sizeof(Header));
 
     header_ = reinterpret_cast<Header*>(provider_.addr());

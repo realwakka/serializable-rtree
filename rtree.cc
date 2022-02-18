@@ -9,12 +9,6 @@
 
 namespace rtree {
 
-namespace {
-
-}
-
-
-
 template<int D, int F>
 void refresh_rect(BasicNode<F>* nodes, BasicRect<D>* rects, int rect_offset) {
   auto& rect = rects[rect_offset];
@@ -46,9 +40,6 @@ void refresh_rect(std::vector<BasicNode<F>>& nodes, std::vector<BasicRect<D>>& r
 template<int D>
 std::pair<std::vector<int>, std::vector<int>> quadratic_split(const std::vector<int>& rect_offsets,
 							      const BasicRect<D>* rects) {
-
-// std::pair<std::vector<int>, std::vector<int>> quadratic_split(const std::vector<int>& rect_offsets,
-// 							      const std::vector<Rect>& rects) {
 
   auto calc_deadspace = [](const auto& a, const auto& b) {
 			  Box c = bounding_box(a,b);
@@ -269,35 +260,6 @@ std::vector<int> RTree::intersects(const Box& box) {
   return result;
 }
 
-Writer::Writer() {}
-
-
-void Writer::write(const std::string& path, const RTree& rtree) {
-  std::filesystem::create_directory(path);
-
-  const auto& data = rtree.data();
-  auto node_path = path + "/nodes";
-  {
-    std::ofstream ofs;
-    ofs.open(node_path.c_str(), std::ios::out | std::ios::binary);
-    ofs << data.nodes_.size();
-    ofs.write(reinterpret_cast<const char*>(data.nodes_.data()),
-              sizeof(Node) * data.nodes_.size());
-    ofs.close();
-  }
-
-  auto rect_path = path + "/rects";
-  {
-    std::ofstream ofs;
-    ofs.open(rect_path.c_str(), std::ios::out | std::ios::binary);
-    ofs.write(reinterpret_cast<const char*>(&data.root_rect_offset_),
-              sizeof(data.root_rect_offset_));
-    ofs << data.rects_.size();
-    ofs.write(reinterpret_cast<const char*>(data.rects_.data()),
-              sizeof(Rect) * data.rects_.size());    
-    ofs.close();
-  }
-}
 
 template<int D>
 void print_rect(const BasicRect<D>* rects, int offset) {
@@ -345,42 +307,6 @@ void print_impl(const StaticRTreeData<D, F>& rtree) {
 
 void RTree::print() {
   print_impl(make_static(data()));
-}
-
-
-Reader::Reader() {}
-
-RTree Reader::read(const std::string& path) {
-  auto node_path = path + "/nodes";
-  RTreeData data;  
-  {
-    std::ifstream ifs;
-    ifs.open(node_path.c_str(), std::ifstream::binary);
-    size_t size;
-    ifs >> size;
-
-    data.nodes_ = std::vector<Node>{size};
-    ifs.read(reinterpret_cast<char*>(data.nodes_.data()),
-             sizeof(Node) * size);
-    ifs.close();
-  }
-
-  auto rect_path = path + "/rects";
-  {
-    std::ifstream ifs;
-    ifs.open(rect_path.c_str(), std::ifstream::binary);
-    ifs.read(reinterpret_cast<char*>(&data.root_rect_offset_),
-             sizeof(data.root_rect_offset_));
-    size_t size;
-    ifs >> size;
-    data.rects_ = std::vector<Rect>{size};
-    ifs.read(reinterpret_cast<char*>(data.rects_.data()),
-             sizeof(Rect) * size);
-    ifs.close();
-  }
-
-  RTree rtree{data};
-  return rtree;
 }
 
 template<int D, int F>
@@ -442,7 +368,7 @@ void RTree::remove(int id) {
 
 
 template<int D, int F, class MemoryProvider>
-int Writer2<D, F, MemoryProvider>::split(int fanout, int old_node_offset, int new_rect_offset) {
+int Writer<D, F, MemoryProvider>::split(int fanout, int old_node_offset, int new_rect_offset) {
   Rect& new_rect = rects_[new_rect_offset];
 
 
@@ -479,7 +405,7 @@ int Writer2<D, F, MemoryProvider>::split(int fanout, int old_node_offset, int ne
 
 
 template<int D, int F, class MemoryProvider>
-int Writer2<D, F, MemoryProvider>::insert_recursive(int new_rect_offset, int target_node_offset) {
+int Writer<D, F, MemoryProvider>::insert_recursive(int new_rect_offset, int target_node_offset) {
   auto& node = nodes_[target_node_offset];
   const Rect& new_rect = rects_[new_rect_offset];  
 
@@ -512,30 +438,18 @@ int Writer2<D, F, MemoryProvider>::insert_recursive(int new_rect_offset, int tar
 
 
 template<int D, int F, class MemoryProvider>
-void Writer2<D, F, MemoryProvider>::insert(const Box& box, int id) {
+void Writer<D, F, MemoryProvider>::insert(const Box& box, int id) {
   Rect* rect = insert_rect();
   rect->box_ = box;
   rect->child_ = -1;
   rect->id_ = id;
     
-  // Rect rect;
-  // rect.box_ = box;
-  // rect.child_ = -1;
-  // rect.id_ = id;
-
   auto offset = header_->rect_size_ - 1;
   
-  // auto offset = data_.rects_.size();
-  // data_.rects_.emplace_back(rect);
-
   auto root_node_offset = rects_[header_->root_rect_offset_].child_;
   auto res = insert_recursive(offset, root_node_offset);
   refresh_rect(nodes_, rects_, header_->root_rect_offset_);    
 
-  // auto root_node_offset = data_.rects_[data_.root_rect_offset_].child_;
-  // auto res = insert_recursive(offset, root_node_offset, data_.nodes_, data_.rects_);
-  // refresh_rect(nodes_, rects_, header_->root_rect_offset_);
-  
   if (res >= 0) {
     auto new_root_node = insert_node();
     new_root_node->rects_[0] = header_->root_rect_offset_;
@@ -544,49 +458,34 @@ void Writer2<D, F, MemoryProvider>::insert(const Box& box, int id) {
 
     root_node_offset = header_->node_size_ - 1;
       
-    // Node new_root_node;
-    // new_root_node.rects_[0] = data_.root_rect_offset_;
-    // new_root_node.rects_[1] = res;
-    // new_root_node.size_ = 2;    
-
-    // root_node_offset = data_.nodes_.size();
-    // data_.nodes_.emplace_back(new_root_node);
-
     auto root_rect = insert_rect();
     root_rect->child_ = root_node_offset;
     root_rect->id_ = -1;
     header_->root_rect_offset_ = header_->rect_size_ - 1;
     refresh_rect(nodes_, rects_, header_->root_rect_offset_);
-    
-    // Rect root_rect;
-    // root_rect.child_ = root_node_offset;
-    // root_rect.id_ = -1;
-    // data_.root_rect_offset_ = data_.rects_.size();
-    // data_.rects_.emplace_back(root_rect);
-    // refresh_rect(data_.nodes_, data_.rects_, data_.root_rect_offset_);    
   }
 }
 
 template<int D, int F, class MemoryProvider>
-void Writer2<D, F, MemoryProvider>::print_tree() {
+void Writer<D, F, MemoryProvider>::print_tree() {
   print_impl(static_data());
 }
 
 template<int D, int F, class MemoryProvider>
-std::vector<int> NewReader<D, F, MemoryProvider>::intersects(const Box& box) {
+std::vector<int> Reader<D, F, MemoryProvider>::intersects(const Box& box) {
   std::vector<int> result;    
   intersects_impl(box, data_, data_.root_rect_offset_, result);
   return result;
 }
 
 template<int D, int F, class MemoryProvider>
-std::vector<int> NewReader<D, F, MemoryProvider>::knn(const BasicPoint<D>& query, int k) {
+std::vector<int> Reader<D, F, MemoryProvider>::knn(const BasicPoint<D>& query, int k) {
   return knn_impl(data_, query, k);  
 }
 
 
-template class NewReader<2, 3, MappedFileProvider>;
-template class Writer2<2, 3, MappedFileProvider>;
+template class Reader<2, 3, MappedFileProvider>;
+template class Writer<2, 3, MappedFileProvider>;
 
 
 
